@@ -424,7 +424,7 @@ export const MeetingAppProvider = ({
         }}
         maxSnack={3}
         anchorOrigin={{
-          vertical: isTab || isMobile ? "top" : "bottom",
+          vertical: isTab || isMobile ? "bottom" : "bottom",
           horizontal: "left",
         }}
       >
