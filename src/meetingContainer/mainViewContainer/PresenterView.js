@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ScreenShare } from "@mui/icons-material";
+import { ScreenShare, Close } from "@mui/icons-material";
 import { useMeeting, useParticipant, VideoPlayer } from "@videosdk.live/react-sdk";
-import { Box, Button, Typography, useTheme } from "@mui/material";
+import { Box, Button, Typography, useTheme, IconButton } from "@mui/material";
 import ParticipantViewer, { CornerDisplayName } from "./ParticipantViewer";
 import useIsMobile from "../../utils/useIsMobile";
 import {
@@ -24,7 +24,6 @@ const PresenterView = ({ presenterId }) => {
     webcamOn,
     micOn,
     isLocal,
-    // screenShareStream,
     screenShareAudioStream,
     screenShareOn,
     displayName,
@@ -50,6 +49,8 @@ const PresenterView = ({ presenterId }) => {
   const theme = useTheme();
 
   const [mouseOver, setMouseOver] = useState(false);
+  const [showPreview, setShowPreview] = useState(true); // Thêm state cho preview
+  const previewVideoRef = useRef(); // Ref cho preview video
 
   const mobilePortrait = isMobile && isPortrait;
 
@@ -114,6 +115,49 @@ const PresenterView = ({ presenterId }) => {
     }
   }, [screenShareAudioStream, screenShareOn, isLocal, selectedOutputDeviceId]);
 
+  // Effect để lấy stream màn hình cho preview (chỉ cho local presenter)
+  useEffect(() => {
+    if (isLocal && screenShareOn && showPreview) {
+      const getScreenPreview = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              cursor: "always"
+            },
+            audio: false // Không cần audio cho preview
+          });
+
+          if (previewVideoRef.current) {
+            previewVideoRef.current.srcObject = stream;
+          }
+
+          // Khi người dùng stop sharing từ browser
+          stream.getTracks().forEach(track => {
+            track.onended = () => {
+              if (previewVideoRef.current) {
+                previewVideoRef.current.srcObject = null;
+              }
+            };
+          });
+        } catch (error) {
+          console.error("Error getting screen preview:", error);
+        }
+      };
+
+      getScreenPreview();
+    } else {
+      if (previewVideoRef.current) {
+        previewVideoRef.current.srcObject = null;
+      }
+    }
+
+    return () => {
+      if (previewVideoRef.current) {
+        previewVideoRef.current.srcObject = null;
+      }
+    };
+  }, [isLocal, screenShareOn, showPreview]);
+
   return (
     <div
       onMouseEnter={() => {
@@ -172,30 +216,104 @@ const PresenterView = ({ presenterId }) => {
             }}
             className={`h-full`}
             classNameVideo={`h-full`}
-            videoStyle={{
-              filter: isLocal ? "blur(1rem)" : undefined,
-            }}
+            // BỎ blur filter để xem rõ màn hình share
+            // videoStyle={{
+            //   filter: isLocal ? "blur(1rem)" : undefined,
+            // }}
           />
         </>
+
+        {/* Preview Window cho Local Presenter */}
+        {isLocal && showPreview && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              width: 320,
+              height: 180,
+              backgroundColor: "black",
+              borderRadius: 2,
+              overflow: "hidden",
+              boxShadow: 3,
+              zIndex: 10,
+            }}
+          >
+            <video
+              ref={previewVideoRef}
+              autoPlay
+              muted
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+              }}
+            />
+            {/* Preview Header */}
+            <Box
+              sx={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                backgroundColor: "rgba(0,0,0,0.7)",
+                p: 0.5,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "white",
+                  fontWeight: "medium",
+                  fontSize: "0.7rem",
+                }}
+              >
+                Your Screen
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowPreview(false);
+                }}
+                sx={{
+                  color: "white",
+                  p: 0.5,
+                  "&:hover": {
+                    backgroundColor: "rgba(255,255,255,0.1)",
+                  },
+                }}
+              >
+                <Close sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Box>
+          </Box>
+        )}
+
         {isLocal && (
           <Box
-            p={5}
-            style={{
-              borderRadius: theme.spacing(2),
+            p={3}
+            sx={{
+              borderRadius: 2,
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
               flexDirection: "column",
               position: "absolute",
-              top: "50%",
+              bottom: 16,
               left: "50%",
-              transform: "translate(-50%,-50%)",
+              transform: "translateX(-50%)",
               backgroundColor:
                 appTheme === appThemes.DARK
                   ? theme.palette.darkTheme.slightLighter
                   : appTheme === appThemes.LIGHT
                     ? theme.palette.lightTheme.two
                     : "#333244",
+              opacity: 0.9,
+              minWidth: 300,
             }}
           >
             <ScreenShare
@@ -204,13 +322,13 @@ const PresenterView = ({ presenterId }) => {
                   appTheme === appThemes.LIGHT
                     ? theme.palette.lightTheme.contrastText
                     : theme.palette.common.white,
-                height: theme.spacing(6),
-                width: theme.spacing(6),
+                height: theme.spacing(4),
+                width: theme.spacing(4),
               }}
             />
-            <Box mt={2}>
+            <Box mt={1}>
               <Typography
-                variant="h6"
+                variant="subtitle1"
                 style={{
                   fontWeight: "bold",
                   textAlign: "center",
@@ -222,8 +340,29 @@ const PresenterView = ({ presenterId }) => {
               >
                 You are presenting to everyone
               </Typography>
+              {!showPreview && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: theme.palette.primary.main,
+                    textAlign: "center",
+                    display: "block",
+                    mt: 0.5,
+                    cursor: "pointer",
+                    "&:hover": {
+                      textDecoration: "underline",
+                    },
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowPreview(true);
+                  }}
+                >
+                  Show preview
+                </Typography>
+              )}
             </Box>
-            <Box mt={4}>
+            <Box mt={2}>
               <Button
                 variant="contained"
                 color="primary"
@@ -246,6 +385,38 @@ const PresenterView = ({ presenterId }) => {
           </Box>
         )}
       </div>
+
+      {/* Floating Preview Button khi preview bị tắt */}
+      {isLocal && !showPreview && (
+        <Button
+          variant="contained"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowPreview(true);
+          }}
+          sx={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            backgroundColor: theme.palette.primary.main,
+            color: "white",
+            borderRadius: 2,
+            px: 2,
+            py: 1,
+            minWidth: "auto",
+            zIndex: 10,
+            "&:hover": {
+              backgroundColor: theme.palette.primary.dark,
+            },
+          }}
+          startIcon={<ScreenShare sx={{ fontSize: 16 }} />}
+        >
+          <Typography variant="caption" sx={{ fontWeight: "medium" }}>
+            Preview
+          </Typography>
+        </Button>
+      )}
+
       <CornerDisplayName
         {...{
           isLocal,
@@ -260,6 +431,7 @@ const PresenterView = ({ presenterId }) => {
           mouseOver,
         }}
       />
+      
       {mobilePortrait && meetingLayout !== meetingLayouts.SPOTLIGHT ? (
         <div
           style={{
