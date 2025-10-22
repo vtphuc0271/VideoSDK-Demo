@@ -483,7 +483,7 @@ const App = () => {
       !paramKeys.screenShareResolution ||
       typeof paramKeys.screenShareResolution !== "string"
     ) {
-      paramKeys.screenShareResolution = "h720p_15fps";
+      paramKeys.screenShareResolution = "h1080p_60fps";
     }
     if (
       !paramKeys.screenShareOptimizationMode ||
