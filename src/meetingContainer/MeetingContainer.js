@@ -854,7 +854,7 @@ const MeetingContainer = () => {
                 flexDirection: isTab || isMobile ? "column-reverse" : "column",
               }}
             >
-              {topbarEnabled && <TopBar {...{ topBarHeight }} />}
+             
               <div
                 style={{
                   display: "flex",
@@ -924,7 +924,21 @@ const MeetingContainer = () => {
                     height: containerHeight - topBarHeight,
                   }}
                 />
+                
               </div>
+               <Box
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+             
+            }}
+          >
+                {topbarEnabled && <TopBar {...{ topBarHeight }} />}
+
+          </Box>
+               
+
             </div>
           </>
         ) : (
