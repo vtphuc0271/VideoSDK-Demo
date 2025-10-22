@@ -49,8 +49,7 @@ const PresenterView = ({ presenterId }) => {
   const theme = useTheme();
 
   const [mouseOver, setMouseOver] = useState(false);
-  const [showPreview, setShowPreview] = useState(true); // Thêm state cho preview
-  const previewVideoRef = useRef(); // Ref cho preview video
+  const [controlsHover, setControlsHover] = useState(false); // State cho hover controls
 
   const mobilePortrait = isMobile && isPortrait;
 
@@ -114,49 +113,6 @@ const PresenterView = ({ presenterId }) => {
       audioPlayer.current.srcObject = null;
     }
   }, [screenShareAudioStream, screenShareOn, isLocal, selectedOutputDeviceId]);
-
-  // Effect để lấy stream màn hình cho preview (chỉ cho local presenter)
-  useEffect(() => {
-    if (isLocal && screenShareOn && showPreview) {
-      const getScreenPreview = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-              cursor: "always"
-            },
-            audio: false // Không cần audio cho preview
-          });
-
-          if (previewVideoRef.current) {
-            previewVideoRef.current.srcObject = stream;
-          }
-
-          // Khi người dùng stop sharing từ browser
-          stream.getTracks().forEach(track => {
-            track.onended = () => {
-              if (previewVideoRef.current) {
-                previewVideoRef.current.srcObject = null;
-              }
-            };
-          });
-        } catch (error) {
-          console.error("Error getting screen preview:", error);
-        }
-      };
-
-      getScreenPreview();
-    } else {
-      if (previewVideoRef.current) {
-        previewVideoRef.current.srcObject = null;
-      }
-    }
-
-    return () => {
-      if (previewVideoRef.current) {
-        previewVideoRef.current.srcObject = null;
-      }
-    };
-  }, [isLocal, screenShareOn, showPreview]);
 
   return (
     <div
@@ -223,79 +179,10 @@ const PresenterView = ({ presenterId }) => {
           />
         </>
 
-        {/* Preview Window cho Local Presenter */}
-        {isLocal && showPreview && (
-          <Box
-            sx={{
-              position: "absolute",
-              top: 16,
-              right: 16,
-              width: 320,
-              height: 180,
-              backgroundColor: "black",
-              borderRadius: 2,
-              overflow: "hidden",
-              boxShadow: 3,
-              zIndex: 10,
-            }}
-          >
-            <video
-              ref={previewVideoRef}
-              autoPlay
-              muted
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-              }}
-            />
-            {/* Preview Header */}
-            <Box
-              sx={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                backgroundColor: "rgba(0,0,0,0.7)",
-                p: 0.5,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Typography
-                variant="caption"
-                sx={{
-                  color: "white",
-                  fontWeight: "medium",
-                  fontSize: "0.7rem",
-                }}
-              >
-                Your Screen
-              </Typography>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowPreview(false);
-                }}
-                sx={{
-                  color: "white",
-                  p: 0.5,
-                  "&:hover": {
-                    backgroundColor: "rgba(255,255,255,0.1)",
-                  },
-                }}
-              >
-                <Close sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Box>
-          </Box>
-        )}
-
         {isLocal && (
           <Box
-            p={3}
+            onMouseEnter={() => setControlsHover(true)}
+            onMouseLeave={() => setControlsHover(false)}
             sx={{
               borderRadius: 2,
               display: "flex",
@@ -312,110 +199,101 @@ const PresenterView = ({ presenterId }) => {
                   : appTheme === appThemes.LIGHT
                     ? theme.palette.lightTheme.two
                     : "#333244",
-              opacity: 0.9,
-              minWidth: 300,
+              transition: `all ${300 * (animationsEnabled ? 1 : 0.5)}ms`,
+              // Hiệu ứng mờ/rõ khi hover
+              opacity: controlsHover ? 0.95 : 0.7,
+              padding: controlsHover ? 3 : 1.5,
+              minWidth: controlsHover ? 300 : 120,
+              // Hiệu ứng scale nhỏ lại khi không hover
+              transform: controlsHover 
+                ? "translateX(-50%) scale(1)" 
+                : "translateX(-50%) scale(0.9)",
             }}
           >
-            <ScreenShare
-              style={{
-                color:
-                  appTheme === appThemes.LIGHT
-                    ? theme.palette.lightTheme.contrastText
-                    : theme.palette.common.white,
-                height: theme.spacing(4),
-                width: theme.spacing(4),
-              }}
-            />
-            <Box mt={1}>
-              <Typography
-                variant="subtitle1"
-                style={{
-                  fontWeight: "bold",
-                  textAlign: "center",
-                  color:
-                    appTheme === appThemes.LIGHT
-                      ? theme.palette.lightTheme.contrastText
-                      : theme.palette.common.white,
-                }}
-              >
-                You are presenting to everyone
-              </Typography>
-              {!showPreview && (
+            {/* Minimal view khi không hover */}
+            {!controlsHover && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <ScreenShare
+                  sx={{
+                    color:
+                      appTheme === appThemes.LIGHT
+                        ? theme.palette.lightTheme.contrastText
+                        : theme.palette.common.white,
+                    fontSize: 20,
+                  }}
+                />
                 <Typography
                   variant="caption"
                   sx={{
-                    color: theme.palette.primary.main,
-                    textAlign: "center",
-                    display: "block",
-                    mt: 0.5,
-                    cursor: "pointer",
-                    "&:hover": {
-                      textDecoration: "underline",
-                    },
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowPreview(true);
+                    fontWeight: "medium",
+                    color:
+                      appTheme === appThemes.LIGHT
+                        ? theme.palette.lightTheme.contrastText
+                        : theme.palette.common.white,
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  Show preview
+                  Presenting
                 </Typography>
-              )}
-            </Box>
-            <Box mt={2}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleScreenShare();
-                }}
-                style={{
-                  transition: `all ${200 * (animationsEnabled ? 1 : 0.5)}ms`,
-                  transitionTimingFunction: "linear",
-                  backgroundColor:
-                    appTheme === appThemes.LIGHT || appTheme === appThemes.DARK
-                      ? theme.palette.lightTheme.primaryMain
-                      : theme.palette.primary.main,
-                }}
-              >
-                Stop presenting
-              </Button>
-            </Box>
+              </Box>
+            )}
+
+            {/* Full controls khi hover */}
+            {controlsHover && (
+              <>
+                <ScreenShare
+                  sx={{
+                    color:
+                      appTheme === appThemes.LIGHT
+                        ? theme.palette.lightTheme.contrastText
+                        : theme.palette.common.white,
+                    fontSize: 32,
+                    mb: 1,
+                  }}
+                />
+                <Box sx={{ textAlign: "center", mb: 1 }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{
+                      fontWeight: "bold",
+                      color:
+                        appTheme === appThemes.LIGHT
+                          ? theme.palette.lightTheme.contrastText
+                          : theme.palette.common.white,
+                    }}
+                  >
+                    You are presenting to everyone
+                  </Typography>
+                </Box>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleScreenShare();
+                  }}
+                  sx={{
+                    transition: `all ${200 * (animationsEnabled ? 1 : 0.5)}ms`,
+                    transitionTimingFunction: "linear",
+                    backgroundColor:
+                      appTheme === appThemes.LIGHT || appTheme === appThemes.DARK
+                        ? theme.palette.lightTheme.primaryMain
+                        : theme.palette.primary.main,
+                    "&:hover": {
+                      backgroundColor:
+                        appTheme === appThemes.LIGHT || appTheme === appThemes.DARK
+                          ? theme.palette.lightTheme.primaryDark
+                          : theme.palette.primary.dark,
+                    },
+                  }}
+                >
+                  Stop presenting
+                </Button>
+              </>
+            )}
           </Box>
         )}
       </div>
-
-      {/* Floating Preview Button khi preview bị tắt */}
-      {isLocal && !showPreview && (
-        <Button
-          variant="contained"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowPreview(true);
-          }}
-          sx={{
-            position: "absolute",
-            top: 16,
-            right: 16,
-            backgroundColor: theme.palette.primary.main,
-            color: "white",
-            borderRadius: 2,
-            px: 2,
-            py: 1,
-            minWidth: "auto",
-            zIndex: 10,
-            "&:hover": {
-              backgroundColor: theme.palette.primary.dark,
-            },
-          }}
-          startIcon={<ScreenShare sx={{ fontSize: 16 }} />}
-        >
-          <Typography variant="caption" sx={{ fontWeight: "medium" }}>
-            Preview
-          </Typography>
-        </Button>
-      )}
 
       <CornerDisplayName
         {...{
